@@ -175,9 +175,9 @@ Se falhar, as formas viáveis são:
 |---|---|---|
 | **4 Picos**, um por jogador | R$ 240 | Cada placa faz 1 BT + 1 USB; simples e robusto |
 | **1 cérebro + 4 bocas** | R$ 160 | Um Pico recebe os 4 BT e alimenta 4 RP2040 Zero por SPI/UART, cada um virando um joystick |
-| 1 Pico + payload no console | R$ 0 | Patchear a camada de input (ScePad); **não transfere** para o console bloqueado |
+| 1 Pico + payload no console | R$ 0 | Patchear ou injetar na camada de input (ScePad); exige console desbloqueado |
 
-**Regra do projeto:** nada que dependa de payload entra no produto. Payload é conveniência de bancada.
+**Payload faz parte do produto.** O caminho `ps5-unlock-pico` usa payload no console de forma assumida: o Pico entrega input comum e o payload do console cria os controles virtuais. Não há veto a payload — o que existe é a consequência de que esse caminho só roda em console desbloqueado.
 
 ## Mapeamento mínimo PS5
 | Entrada genérica | Saída (controle emulado) |
