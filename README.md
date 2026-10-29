@@ -87,3 +87,7 @@ Controles USB / dongles 2,4 GHz / Bluetooth
 - Escolha de rádio externo e firmware.
 - Capacidade real do Pico 2 W com USB Host, Bluetooth e duas saídas Atari simultâneas.
 - Estratégia de alimentação e proteção elétrica.
+
+## Licença
+
+[MIT](LICENSE) © 2026 Sandro Bihaiko
