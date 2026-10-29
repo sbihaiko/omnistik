@@ -14,6 +14,7 @@
 // --- libScePad -------------------------------------------------------------
 // Nomes e assinaturas vêm dos símbolos exportados por libScePad.so; o SDK
 // entrega a biblioteca sem cabeçalho.
+
 int scePadInit(void);
 int scePadVirtualDeviceAddDevice(void *param, int32_t type);
 int scePadVirtualDeviceDeleteDevice(int32_t handle);
@@ -35,8 +36,15 @@ static const char *hex(int32_t v) {
 }
 
 int main(void) {
+    // Sem buffer: a saída vai por um socket e o processo pode travar no meio.
+    setvbuf(stdout, NULL, _IONBF, 0);
+
     printf("vdi-probe: etapa 0, chamada crua\n");
 
+    // 0x80920005 foi o que o AddDevice devolveu sem init, e a leitura publica
+    // desse codigo e "biblioteca nao inicializada". Entao o init e obrigatorio:
+    // agora ele roda com a saida sem buffer, para separar "o init trava" de
+    // "o init funciona e a criacao e que e recusada".
     int rc = scePadInit();
     printf("scePadInit                 -> %s\n", hex(rc));
 

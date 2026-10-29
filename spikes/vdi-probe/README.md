@@ -16,6 +16,23 @@ O caminho USB direto está medido e descartado ([contrato do alvo](../../docs/co
 
 Cada etapa só começa se a anterior der resultado interpretável. A etapa 0 é a que este esboço entrega.
 
+## O que já foi medido (29/10/2026)
+
+Console CFI-2014, 11.200.005, cadeia `kstuff` + `shsrv` de pé, `elfldr` sem listener na 9021.
+
+| Tentativa | Como | Resultado |
+|---|---|---|
+| `scePadVirtualDeviceAddDevice` sem `scePadInit` | ELF rodado pelo `hbldr` do `shsrv` | **`0x80920005`** — devolveu na hora, não travou. A leitura pública desse código é "biblioteca não inicializada" |
+| `scePadInit` e depois `AddDevice` | mesmo caminho | o processo **para no `scePadInit`**: a linha seguinte nunca sai, a tela do console fica preta e o sistema suspende o app (`STOP`) |
+| `exec /data/vdi_probe.elf` | builtin do `shsrv` | nada: o `exec` quer ELF assinado e recusou sem mensagem |
+
+Duas conclusões de método, que valem mais que o resultado:
+
+- **`hbldr` não serve para payload headless.** Ele registra o ELF como app (`FAKE00000`, AppId `a018`) e o sistema suspende o processo; a tela preta é o app em primeiro plano sem desenhar nada. Payload de sondagem precisa do `elfldr` (9021) ou do `payload run` do `ariel`, que rodam o ELF como processo.
+- **A chamada é alcançável**: `AddDevice` retornou um código do ScePad em vez de derrubar o processo. O que falta saber é se `0x80920005` some quando o init acontece no contexto certo, e o init é justamente o que trava no contexto de app.
+
+O próximo passo (etapa 1: anexar ao `SceShellUI`) segue sem resposta e sem execução.
+
 ## Riscos que precisam estar escritos antes da etapa 1
 
 - **Anexar ao `SceShellUI` é a mesma classe de operação que travou o console no spike de controle do `ariel`**: lá o `ptrace` no título em primeiro plano congelou o sistema. Aqui o alvo é o shell, que é mais crítico ainda. Um travamento no shell derruba a cadeia inteira e exige reboot físico.
