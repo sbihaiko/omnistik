@@ -1,4 +1,4 @@
-# Omnistik — MultiController: especificação e plano do protótipo
+# Omnistik — O Joystick Universal
 
 Atualizado em 29/10/2026. Síntese das decisões e hipóteses discutidas; não representa hardware ou firmware já validado.
 
