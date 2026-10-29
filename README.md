@@ -102,6 +102,8 @@ O caminho do payload é o que sustenta vários jogadores com um único Pico mesm
 - [PoorDS4 / GhostControl](https://github.com/a-ddr/PoorDS4): referência do caminho de payload — cria controles virtuais no PS5 por `scePadVirtualDevice*`, com `MAX_SLOTS 4`.
 
 ## Pesquisa e incógnitas do PS5
+O que o console da bancada já respondeu, com os códigos de erro medidos, está em [docs/contrato-do-alvo.md](docs/contrato-do-alvo.md).
+
 - **Controles virtuais por payload**: quais argumentos `scePadVirtualDeviceAddDevice` aceita e como o input chega em 60 Hz sem latência perceptível.
 - Quantas interfaces USB o Pico 2 W sustenta ao mesmo tempo: host do hub e device para o PS5.
 - Se o **USB composto com N interfaces HID** vira N jogadores ou apenas um.
