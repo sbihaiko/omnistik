@@ -11,6 +11,11 @@ Verifica, do lado do host, o que o firmware promete:
 
 Uso:
     tools/.venv/bin/python tools/hid_harness.py --pads 1 --seconds 6 --out out
+    tools/.venv/bin/python tools/hid_harness.py --pads 2 --control --out out
+
+Sem `--control`, só observa o ciclo automático do firmware. Com `--control`,
+comanda cada interface pelo relatório de saída (pressiona, solta, pausa) e
+confere que a resposta é só daquela interface.
 
 Saída: <out>/descriptor-if<N>.hex e <out>/resumo.json. Código de saída 0 só
 quando todas as checagens passam.
@@ -30,9 +35,25 @@ DEFAULT_VID = 0xCAFE
 DEFAULT_PID = 0x4001
 AXES_NEUTRAL = 128
 
+CMD_REPORT_ID = 2
+CMD_NEUTRAL = 0
+CMD_PRESS = 1
+CMD_RELEASE = 2
+CMD_PAUSE = 3
+CMD_AUTO = 4
+
 
 def find_interfaces(vid, pid):
-    return [d for d in hid.enumerate(vid, pid)]
+    """Enumera as interfaces em ordem de número de interface.
+
+    O macOS não devolve os caminhos em ordem estável — numa leitura a
+    interface 0 vem primeiro, na seguinte a 1. O índice que o firmware usa é
+    o número da interface (e o bit do botão), não a posição na lista.
+    """
+    achadas = list(hid.enumerate(vid, pid))
+    achadas.sort(key=lambda d: (d.get("interface_number") is None,
+                                d.get("interface_number") if d.get("interface_number", -1) >= 0 else 0))
+    return achadas
 
 
 def abrir(device_path):
@@ -70,6 +91,91 @@ def normalize(report):
     return report
 
 
+def send_command(dev, cmd):
+    """Envia um comando pelo relatório de saída (Report ID 2, 1 byte)."""
+    dev.write(bytes([CMD_REPORT_ID, cmd]))
+
+
+def wait_for(dev, predicate, seconds):
+    """Lê relatórios até `predicate` aceitar um deles ou o prazo acabar."""
+    deadline = time.monotonic() + seconds
+    seen = []
+    while time.monotonic() < deadline:
+        data = dev.read(64, 200)
+        if not data:
+            continue
+        report = normalize(list(data))
+        seen.append(report)
+        if len(report) == 6 and predicate(report):
+            return report, seen
+    return None, seen
+
+
+def drive(device_path, index, seconds, out_queue):
+    """Controla uma interface pelo relatório de saída e confere a resposta.
+
+    Cada interface recebe o seu próprio comando: pressiona, espera o botão
+    aparecer; solta, espera o estado neutro voltar.
+    """
+    try:
+        dev = abrir(device_path)
+    except Exception as exc:  # noqa: BLE001
+        out_queue.put(("erro", str(exc)))
+        return
+
+    botao = 1 << index
+    try:
+        dev.set_nonblocking(0)
+
+        send_command(dev, CMD_AUTO)
+        send_command(dev, CMD_NEUTRAL)
+        neutro, _ = wait_for(dev, lambda r: (r[0] | (r[1] << 8)) == 0, 2.0)
+        if neutro is None:
+            out_queue.put(("erro", "não voltou ao neutro após CMD_NEUTRAL"))
+            return
+
+        send_command(dev, CMD_PRESS)
+        pressionado, vistas = wait_for(
+            dev, lambda r: (r[0] | (r[1] << 8)) == botao, 2.0
+        )
+        if pressionado is None:
+            botoes = sorted({r[0] | (r[1] << 8) for r in vistas if len(r) == 6})
+            out_queue.put(
+                ("erro", f"CMD_PRESS não produziu 0x{botao:04x}; visto {botoes}")
+            )
+            return
+
+        send_command(dev, CMD_RELEASE)
+        solto, vistas = wait_for(dev, lambda r: (r[0] | (r[1] << 8)) == 0, 2.0)
+        if solto is None:
+            botoes = sorted({r[0] | (r[1] << 8) for r in vistas if len(r) == 6})
+            out_queue.put(
+                ("erro", f"CMD_RELEASE não voltou ao neutro; visto {botoes}")
+            )
+            return
+
+        # Uma pausa não pode mudar o estado. Pressiona de novo, manda PAUSE e
+        # confere que o botão continua pressionado.
+        send_command(dev, CMD_PRESS)
+        if wait_for(dev, lambda r: (r[0] | (r[1] << 8)) == botao, 2.0)[0] is None:
+            out_queue.put(("erro", "CMD_PRESS não repetiu o estado"))
+            return
+        send_command(dev, CMD_PAUSE)
+        _, vistas = wait_for(dev, lambda r: False, 0.3)
+        botoes = sorted({r[0] | (r[1] << 8) for r in vistas if len(r) == 6})
+        if botoes and botoes != [botao]:
+            out_queue.put(("erro", f"CMD_PAUSE alterou o estado; visto {botoes}"))
+            return
+
+        send_command(dev, CMD_NEUTRAL)
+        out_queue.put(("controlado", True))
+        out_queue.put(("relatorio", list(pressionado)))
+    except Exception as exc:  # noqa: BLE001
+        out_queue.put(("erro", str(exc)))
+    finally:
+        dev.close()
+
+
 def check_report(report, index):
     """Devolve a lista de problemas do relatório para a interface `index`."""
     problemas = []
@@ -97,11 +203,21 @@ def main():
     ap.add_argument("--pid", type=lambda s: int(s, 0), default=DEFAULT_PID)
     ap.add_argument("--pads", type=int, default=1, help="interfaces esperadas")
     ap.add_argument("--seconds", type=float, default=6.0)
+    ap.add_argument(
+        "--control",
+        action="store_true",
+        help="comanda cada interface pelo relatório de saída em vez de só observar",
+    )
     ap.add_argument("--out", type=Path, default=Path("out"))
     args = ap.parse_args()
 
     args.out.mkdir(parents=True, exist_ok=True)
-    resumo = {"vendor": hex(args.vid), "product": hex(args.pid), "esperado": args.pads}
+    resumo = {
+        "vendor": hex(args.vid),
+        "product": hex(args.pid),
+        "esperado": args.pads,
+        "modo": "controlado" if args.control else "observado",
+    }
     falhas = []
 
     interfaces = find_interfaces(args.vid, args.pid)
@@ -139,10 +255,11 @@ def main():
 
     filas = []
     threads = []
-    for info in interfaces:
+    alvo = drive if args.control else observe
+    for index, info in enumerate(interfaces):
         fila = queue.Queue()
         filas.append(fila)
-        t = threading.Thread(target=observe, args=(info["path"], args.seconds, fila))
+        t = threading.Thread(target=alvo, args=(info["path"], index, args.seconds, fila))
         t.start()
         threads.append(t)
     for t in threads:
@@ -155,12 +272,15 @@ def main():
             itens.append(fila.get())
         erros = [msg for tipo, msg in itens if tipo == "erro"]
         relatorios = [r for tipo, r in itens if tipo == "relatorio"]
+        controlado = any(tipo == "controlado" for tipo, _ in itens)
 
         problemas = []
         if erros:
             problemas.extend(erros)
         if not relatorios:
             problemas.append("nenhum relatório recebido")
+        if args.control and not controlado:
+            problemas.append("sequência controlada não completou")
         for rel in relatorios:
             problemas.extend(check_report(rel, index))
 
@@ -170,6 +290,7 @@ def main():
             {
                 "interface": index,
                 "relatorios": len(relatorios),
+                "controlado": controlado,
                 "botoes_observados": [hex(b) for b in bits],
                 "problemas": problemas,
             }

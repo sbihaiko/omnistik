@@ -1,0 +1,6 @@
+/Users/bihaiko/VSCodeProjects/omnistik/spikes/hid-probe/build-n1/_deps/picotool/picotool
+/Users/bihaiko/VSCodeProjects/omnistik/spikes/hid-probe/build-n1/_deps/picotool/picotoolTargets.cmake
+/Users/bihaiko/VSCodeProjects/omnistik/spikes/hid-probe/build-n1/_deps/picotool/picotoolTargets-release.cmake
+/Users/bihaiko/VSCodeProjects/omnistik/spikes/hid-probe/build-n1/_deps/picotool/picotoolConfig.cmake
+/Users/bihaiko/VSCodeProjects/omnistik/spikes/hid-probe/build-n1/_deps/picotool/picotoolConfigVersion.cmake
+/Users/bihaiko/VSCodeProjects/omnistik/spikes/hid-probe/build-n1/_deps/picotool/enc_bootloader.elf

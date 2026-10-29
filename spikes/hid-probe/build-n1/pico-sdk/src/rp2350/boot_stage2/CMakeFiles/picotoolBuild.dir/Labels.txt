@@ -1,0 +1,14 @@
+# Target labels
+ picotoolBuild
+# Source files and their labels
+/Users/bihaiko/VSCodeProjects/omnistik/spikes/hid-probe/build-n1/pico-sdk/src/rp2350/boot_stage2/CMakeFiles/picotoolBuild
+/Users/bihaiko/VSCodeProjects/omnistik/spikes/hid-probe/build-n1/pico-sdk/src/rp2350/boot_stage2/CMakeFiles/picotoolBuild.rule
+/Users/bihaiko/VSCodeProjects/omnistik/spikes/hid-probe/build-n1/pico-sdk/src/rp2350/boot_stage2/CMakeFiles/picotoolBuild-complete.rule
+/Users/bihaiko/VSCodeProjects/omnistik/spikes/hid-probe/build-n1/pico-sdk/src/rp2350/boot_stage2/picotool/src/picotoolBuild-stamp/picotoolBuild-build.rule
+/Users/bihaiko/VSCodeProjects/omnistik/spikes/hid-probe/build-n1/pico-sdk/src/rp2350/boot_stage2/picotool/src/picotoolBuild-stamp/picotoolBuild-configure.rule
+/Users/bihaiko/VSCodeProjects/omnistik/spikes/hid-probe/build-n1/pico-sdk/src/rp2350/boot_stage2/picotool/src/picotoolBuild-stamp/picotoolBuild-download.rule
+/Users/bihaiko/VSCodeProjects/omnistik/spikes/hid-probe/build-n1/pico-sdk/src/rp2350/boot_stage2/picotool/src/picotoolBuild-stamp/picotoolBuild-install.rule
+/Users/bihaiko/VSCodeProjects/omnistik/spikes/hid-probe/build-n1/pico-sdk/src/rp2350/boot_stage2/picotool/src/picotoolBuild-stamp/picotoolBuild-mkdir.rule
+/Users/bihaiko/VSCodeProjects/omnistik/spikes/hid-probe/build-n1/pico-sdk/src/rp2350/boot_stage2/picotool/src/picotoolBuild-stamp/picotoolBuild-patch.rule
+/Users/bihaiko/VSCodeProjects/omnistik/spikes/hid-probe/build-n1/pico-sdk/src/rp2350/boot_stage2/picotool/src/picotoolBuild-stamp/picotoolBuild-test.rule
+/Users/bihaiko/VSCodeProjects/omnistik/spikes/hid-probe/build-n1/pico-sdk/src/rp2350/boot_stage2/picotool/src/picotoolBuild-stamp/picotoolBuild-update.rule

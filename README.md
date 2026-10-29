@@ -116,6 +116,7 @@ O que o console da bancada já respondeu, com os códigos de erro medidos, está
 Medições já feitas. O detalhe e a evidência de cada uma ficam em [docs/hardware.md](docs/hardware.md).
 
 - **O Pico 2 W enumera como gamepad.** Dispositivo USB composto com uma interface HID; o macOS o registra como Game Pad (UsagePage 1 / Usage 5), com o descritor de relatório previsto.
+- **N=1, 2 e 4 passam na bancada de PC.** Os três UF2 enumeram como um único dispositivo pai com N interfaces HID, descritores idênticos e nenhum botão cruzado entre interfaces; cada interface obedece ao seu próprio comando pelo relatório de saída.
 - **`sleep_ms()` no laço principal impede a enumeração no RP2350.** Com pico-sdk 2.3.1 e GCC 14.3, o dispositivo simplesmente não aparece no host; trocando por `busy_wait_us_32()` ele enumera. O caminho de sono do RP2350 (alarme + `wfe`) tem histórico de problema, e a correção citada no SDK não se aplica a esta combinação. **Regra do projeto: nada de `sleep_ms`/`sleep_us` no laço do firmware** até uma versão confirmada.
 
 ## Experimentos

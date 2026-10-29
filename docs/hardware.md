@@ -107,13 +107,15 @@ Configuração exata do artefato medido na bancada de PC. Qualquer resultado de 
 | Placa | `pico2_w` (RP2350 + CYW43) |
 | pico-sdk | 2.3.1, commit `079c6f3` (`/Users/bihaiko/pico/pico-sdk`) |
 | Toolchain | ARM GNU 14.3.rel1 (`arm-gnu-toolchain-14.3.rel1-darwin-arm64-arm-none-eabi`) |
-| Build | CMake + Ninja, `-DOMNISTIK_PADS=1` |
-| UF2 N=1 | `spikes/hid-probe/build/hid_probe.uf2`, sha256 `15eb75b0bc46ed1af09f64dac7346bc7df112dbca35feeb2a7bef978c5e38628` |
+| Build | CMake + Ninja, `-DOMNISTIK_PADS=1\|2\|4` |
+| UF2 N=1 | `spikes/hid-probe/build-n1/hid_probe.uf2`, sha256 `d82af4535645540de6bf3c0ff9a59f0d8a5a128af3d970c381b674987a7eaa83` |
+| UF2 N=2 | `spikes/hid-probe/build-n2/hid_probe.uf2`, sha256 `e33954140ae8d0351c84eb0bf71a63088b8407e0f8818906ca8fa6f27a1ebc6a` |
+| UF2 N=4 | `spikes/hid-probe/build-n4/hid_probe.uf2`, sha256 `20f1ccfc039d82dc6a1c66a4816776cf6eea2a4aab593f49e6233c733eba8213` |
 | Host da bancada | macOS (Darwin 25.6), arm64 (M1), backend `hidapi` via Python `hid` |
 | Identidade USB | VID `0xCAFE`, PID `0x4001` |
 | Flash | arrastar o UF2 para o volume montado em BOOTSEL |
 
-As variantes N=2 e N=4 mudam descritores, endpoints e o hash — cada uma precisa do seu próprio registro antes de ir ao console.
+O relatório de saída (Report ID 2, 1 byte) é o canal de controle de bancada: `0` neutro, `1` pressiona, `2` solta, `3` pausa, `4` volta ao ciclo automático. Cada interface obedece ao seu próprio comando — é o que o harness usa no modo `--control`.
 
 ## Achados de bancada
 
@@ -123,6 +125,9 @@ Resultados medidos, não hipóteses. Cada linha diz o que foi testado e como.
 |---|---|---|
 | A sonda enumera como gamepad | Pico 2 W, pico-sdk 2.3.1, GCC 14.3, USB composto com 1 interface HID | macOS registra `IOHIDDevice` com VendorID `0xCAFE`, ProductID `0x4001`, UsagePage 1 / Usage 5 (Game Pad), descritor de relatório idêntico ao definido |
 | `sleep_ms()` no laço principal derruba a enumeração | mesmas condições; única diferença entre as builds | Dispositivo não aparece no host. Trocado por `busy_wait_us_32()` e passa a enumerar. Isolado por A/B: `stdio_init_all()`, `tud_hid_n_report()` e `tud_hid_n_ready()` foram descartados um a um antes |
+| N=1, 2 e 4 enumera como um dispositivo pai com N interfaces | variantes compiladas com `-DOMNISTIK_PADS` | `hid.enumerate` devolve N caminhos com o mesmo serial; o harness confirma os descritores idênticos e nenhum botão cruzado entre interfaces |
+| Cada interface é controlável pelo seu relatório de saída | Report ID 2, modo `--control` do harness | `PRESS` na interface i produz só o bit i; `PAUSE` não muda o estado; `RELEASE`/`NEUTRAL` voltam a zero |
+| O macOS não devolve os caminhos HID em ordem | mesma placa, leituras sucessivas | Numa leitura a interface 0 vem primeiro, na seguinte a 1. O harness ordena por `interface_number`; sem isso o teste de N=4 acusa botão cruzado que não existe no firmware |
 
 Sobre o segundo achado: o caminho de sono do RP2350 usa alarme + `wfe`, que tem histórico de problema ([pico-sdk#2216](https://github.com/raspberrypi/pico-sdk/issues/2216), [micropython#18990](https://github.com/micropython/micropython/issues/18990)). A correção citada no changelog do SDK para `best_effort_wfe_or_timeout()` não se manifesta nesta combinação. Enquanto não houver versão confirmada, **nada de `sleep_ms`/`sleep_us` no laço do firmware**.
 
