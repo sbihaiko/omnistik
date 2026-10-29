@@ -14,6 +14,11 @@ Criar um gateway que receba controles diferentes (USB, Bluetooth e controles 2,4
 - Controles de origem mantidos intactos.
 
 ## Hardware considerado
+
+![Placa Raspberry Pi Pico 2 W usada no protótipo](docs/images/hardware.png)
+
+*Placa já em mãos para o protótipo: Raspberry Pi Pico 2 W, RP2350, `FCC: 2ABCB-PICO2W` / `IC: 20953-PICO2W`.*
+
 - Raspberry Pi **Pico 2 W** (RP2350), candidato ao gateway.
 - **Hub USB alimentado externamente** no lado de entrada, para gamepads USB e receptores 2,4 GHz.
 - **Hub USB** no lado de saída, agregando os controles emulados em um cabo para o PS5.
