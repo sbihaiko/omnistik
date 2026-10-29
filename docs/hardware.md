@@ -4,17 +4,16 @@ Documento de trabalho do protótipo V1 (PS5). Complementa o [README](../README.m
 
 ## Topologia
 
-Uma porta host só, com hub alimentado, serve o dongle de autenticação e todos os controles de entrada.
+Uma porta host só, com hub alimentado, serve todos os controles de entrada.
 
 ```text
 PS5  <---- cabo USB (micro-USB) ----  Pico 2 W  ---- host PIO-USB ----  hub USB alimentado
-                                       (device)                        ├── dongle de auth
-                                                                       ├── gamepad 1
+                                       (device)                        ├── gamepad 1
                                                                        ├── gamepad 2
                                                                        └── receptor 2,4 GHz
 ```
 
-O PS5 enxerga **um único controle**. O hub e o dongle ficam invisíveis para ele.
+O PS5 enxerga **o gateway**. O hub fica invisível para ele.
 
 ## Papéis USB do Pico 2 W
 
@@ -53,7 +52,7 @@ Requisitos:
 - **Sem backfeed**: o hub não pode devolver 5 V na porta upstream. Muitos hubs baratos realimentam — verificar com multímetro antes de ligar no Pico.
 - O Pico ainda precisa fornecer VBUS na upstream (é assim que o hub detecta a conexão), mas com corrente limitada.
 
-Por que um hub só: economiza uma porta host inteira e o desenho da placa. O custo é que o dongle passa a disputar polling com os controles.
+Por que um hub só: economiza uma porta host inteira e o desenho da placa. O custo é que os controles passam a disputar polling entre si.
 
 ## Lista de material
 
@@ -67,7 +66,6 @@ Por que um hub só: economiza uma porta host inteira e o desenho da placa. O cus
 | Header 1×3 | GND / D+ / D− | Pontos de teste |
 | Cabo micro-USB → USB-A | 1 | Pico → PS5 |
 | Hub USB alimentado | Fonte externa, sem backfeed | Concentrador |
-| Dongle de auth | Haute42/COSMOX Booter5 | Autenticação PS5 |
 
 ## Testes de bancada, nesta ordem
 
@@ -75,10 +73,11 @@ Por que um hub só: economiza uma porta host inteira e o desenho da placa. O cus
 2. **Pico como host**: ler um mouse/teclado via PIO-USB. Valida PIO-USB no RP2350.
 3. **Host + device simultâneos**: host lendo um dispositivo enquanto o Pico enumera no PC. É o teste decisivo da arquitetura.
 4. **Hub + um gamepad**: hub alimentado na porta host, um controle lido.
-5. **Hub + dongle**: o dongle aparece e responde atrás do hub.
-6. **Hub + gamepad + dongle**: os dois ao mesmo tempo, com medição de latência.
+5. **Hub + dois gamepads**: os dois ao mesmo tempo, com medição de latência.
+6. **Pico no PS5 desbloqueado**: com o payload ativo, verificar se o console aceita o dispositivo e quantos jogadores atribui.
+7. **Payload de controle virtual**: quatro controles criados por `scePadVirtualDevice*`, medindo input e latência.
 
-Cada passo isola uma variável. Falha no 2 ou 3 muda o hardware; falha no 6 muda o software.
+Cada passo isola uma variável. Falha no 2 ou 3 muda o hardware; falha no 4 ou 5 muda o software.
 
 ## Múltiplos jogadores
 
@@ -87,18 +86,34 @@ A entrada é resolvida por um único Pico: Bluepad32 recebe até 4 controles Blu
 Ordem de investigação:
 
 1. **Dispositivo composto com 4 interfaces HID.** Se o PS5 registrar 4 jogadores, um Pico basta e não há hardware extra.
-2. Se não registrar: **4 Picos**, um por jogador (mais simples), ou **1 cérebro + 4 bocas** (1 Pico com BT e 4 RP2040 Zero por SPI/UART, mais barato e mais complexo).
+2. Se não registrar: **controles virtuais por payload** — um Pico entrega os controles e o payload do console cria até 4 dispositivos virtuais (`MAX_SLOTS 4` na referência).
+3. Se nenhum dos dois: **1 cérebro + 4 bocas** (1 Pico com BT e 4 RP2040 Zero por SPI/UART) ou **4 Picos**, um por jogador.
 
 **Um Pico não pode fingir ser um hub.** Hub é peça elétrica: precisa de portas físicas e de dispositivos atrás delas. Um hub emulado não teria nada para distribuir, e o console continuaria vendo um jogador.
 
 ## Plano B
 
-Se o hub atrapalhar o dongle ou o PIO-USB não lidar bem com splits:
+Se o PIO-USB não lidar bem com splits do hub:
 
-- **Porta host dedicada para o dongle**, via `MAX3421E` (SPI) ou via um segundo MCU encarregado só do dongle.
-- O hub continua servindo os controles de entrada.
+- **Porta host dedicada por `MAX3421E` (SPI)** ou por um segundo MCU, com o hub servindo só os controles de entrada.
+- A montagem com duas portas não perde nada do que foi feito nos testes 1–3.
 
-A montagem com duas portas não perde nada do que foi feito nos testes 1–3.
+## Manifesto da sonda (spec #1)
+
+Configuração exata do artefato medido na bancada de PC. Qualquer resultado de console só vale para um UF2 listado aqui.
+
+| Item | Valor |
+|---|---|
+| Placa | `pico2_w` (RP2350 + CYW43) |
+| pico-sdk | 2.3.1, commit `079c6f3` (`/Users/bihaiko/pico/pico-sdk`) |
+| Toolchain | ARM GNU 14.3.rel1 (`arm-gnu-toolchain-14.3.rel1-darwin-arm64-arm-none-eabi`) |
+| Build | CMake + Ninja, `-DOMNISTIK_PADS=1` |
+| UF2 N=1 | `spikes/hid-probe/build/hid_probe.uf2`, sha256 `15eb75b0bc46ed1af09f64dac7346bc7df112dbca35feeb2a7bef978c5e38628` |
+| Host da bancada | macOS (Darwin 25.6), arm64 (M1), backend `hidapi` via Python `hid` |
+| Identidade USB | VID `0xCAFE`, PID `0x4001` |
+| Flash | arrastar o UF2 para o volume montado em BOOTSEL |
+
+As variantes N=2 e N=4 mudam descritores, endpoints e o hash — cada uma precisa do seu próprio registro antes de ir ao console.
 
 ## Achados de bancada
 
@@ -115,5 +130,5 @@ Sobre o segundo achado: o caminho de sono do RP2350 usa alarme + `wfe`, que tem 
 
 - Confirmar suporte do `Pico-PIO-USB` ao RP2350.
 - Confirmar comportamento de hub com `Pico-PIO-USB` (split transactions).
-- Medir consumo e surto do dongle no hot-plug.
 - Verificar backfeed do hub escolhido antes de conectar ao Pico.
+- Confirmar com o payload ativo quantos jogadores o console aceita por interface HID.
