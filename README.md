@@ -115,6 +115,8 @@ Conversores da segunda classe — Brook Wingman P5 e FGC2 — resolvem o mesmo p
 5. **Hub alimentado** com um gamepad, lido pelo Pico e repassado ao PS5 (P1).
 6. **Latência e reconexão** ao desconectar/reconectar o controle de origem.
 7. **Segundo controle** e enumeração P1/P2.
+8. **Dispositivo composto com 4 interfaces HID**: verificar se o PS5 registra 4 jogadores. Se sim, um só Pico atende todos.
+9. **Conexão Bluetooth**: parear 4 controles no Pico com Bluepad32 e medir consumo, latência e estabilidade da pilha.
 
 ## Experimentos — fase 2 (console bloqueado, com dongle)
 1. Confirmar no PS5 **bloqueado** que um controle sem autenticação é rejeitado — medir a janela real.
@@ -122,6 +124,26 @@ Conversores da segunda classe — Brook Wingman P5 e FGC2 — resolvem o mesmo p
 3. Repetir a fase 1 com o dongle no caminho.
 4. Deixar um controle parado enquanto o outro joga por 20 minutos e medir a reautenticação de ~30 s.
 5. Verificar quantos dongles o hub suporta sem violar o prazo de reautenticação.
+
+## Quatro jogadores com um Pico
+A entrada não é o problema: Bluepad32 recebe até **4 controles Bluetooth** simultâneos no Pico 2 W, com a lista completa (DS4, DualSense, Switch Pro, Xbox). O gargalo é a saída — o PS5 atribui jogador **por dispositivo USB**, e o RP2350 tem um único controlador USB.
+
+**Teste decisivo:** o Pico enumerar como **dispositivo composto com 4 interfaces HID de gamepad**. É barato e define toda a arquitetura.
+
+| Resultado | Consequência |
+|---|---|
+| O PS5 registra 4 jogadores | **Um Pico resolve o objetivo inteiro** |
+| O PS5 registra 1 jogador | São necessários 4 dispositivos USB |
+
+Se falhar, as formas viáveis são:
+
+| Formato | Custo aprox. | Como |
+|---|---|---|
+| **4 Picos**, um por jogador | R$ 240 | Cada placa faz 1 BT + 1 USB; simples e robusto |
+| **1 cérebro + 4 bocas** | R$ 160 | Um Pico recebe os 4 BT e alimenta 4 RP2040 Zero por SPI/UART, cada um virando um joystick |
+| 1 Pico + payload no console | R$ 0 | Patchear a camada de input (ScePad); **não transfere** para o console bloqueado |
+
+**Regra do projeto:** nada que dependa de payload entra no produto. Payload é conveniência de bancada.
 
 ## Mapeamento mínimo PS5
 | Entrada genérica | Saída (controle emulado) |

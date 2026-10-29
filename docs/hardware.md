@@ -80,6 +80,17 @@ Por que um hub só: economiza uma porta host inteira e o desenho da placa. O cus
 
 Cada passo isola uma variável. Falha no 2 ou 3 muda o hardware; falha no 6 muda o software.
 
+## Múltiplos jogadores
+
+A entrada é resolvida por um único Pico: Bluepad32 recebe até 4 controles Bluetooth simultâneos. A saída é que limita — o PS5 atribui jogador por dispositivo USB, e o RP2350 tem um controlador USB.
+
+Ordem de investigação:
+
+1. **Dispositivo composto com 4 interfaces HID.** Se o PS5 registrar 4 jogadores, um Pico basta e não há hardware extra.
+2. Se não registrar: **4 Picos**, um por jogador (mais simples), ou **1 cérebro + 4 bocas** (1 Pico com BT e 4 RP2040 Zero por SPI/UART, mais barato e mais complexo).
+
+**Um Pico não pode fingir ser um hub.** Hub é peça elétrica: precisa de portas físicas e de dispositivos atrás delas. Um hub emulado não teria nada para distribuir, e o console continuaria vendo um jogador.
+
 ## Plano B
 
 Se o hub atrapalhar o dongle ou o PIO-USB não lidar bem com splits:
