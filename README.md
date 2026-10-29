@@ -5,15 +5,15 @@ Atualizado em 29/10/2026. Síntese das decisões e hipóteses discutidas; não r
 ## Objetivo
 Criar um gateway que receba controles diferentes (USB, Bluetooth e controles 2,4 GHz com dongle) e os apresente a sistemas de destino. Primeiro alvo: **PlayStation 5**, entregando os controles como joysticks de PS5 por cabo USB, sem abrir ou modificar os controles de origem.
 
-A intenção final é funcionar em um **PS5 bloqueado**. O **PS5 desbloqueado** é o instrumento de bancada: serve para observar e engenharia reversa do protocolo de autenticação de controle, livre da checagem que o console bloqueado impõe.
+A intenção final é funcionar em um **PS5 bloqueado**. O **PS5 desbloqueado** é o instrumento de bancada: serve para observar o handshake de autenticação, que será delegado a um dongle no caminho de produção.
 
 ## Escopo V1
 - Primeiro demonstrar **um gamepad de terceiros controlando o PS5**; depois expandir a dois jogadores.
-- O gateway se enumera como controle de PS5 (DualSense/DualShock 4) via USB com fio.
+- O gateway **não emula a autenticação**: ele emula um controle comum (XInput/HID) e delega a credencial a um **dongle de autenticação** ligado à sua própria porta USB-A.
 - Entrada dos controles físicos por **hub USB alimentado**.
-- Saída agregada ao PS5 por **hub USB** — um único cabo até o console.
-- PS5 **desbloqueado**: a checagem de autenticação de controle de terceiros precisa estar neutralizada pelo payload/exploit em uso.
+- Saída por um único cabo USB até o console.
 - Controles de origem mantidos intactos.
+- Validar preferencialmente já no **PS5 bloqueado**, que é o alvo real.
 
 ## Hardware considerado
 
@@ -23,10 +23,10 @@ A intenção final é funcionar em um **PS5 bloqueado**. O **PS5 desbloqueado** 
 
 - Raspberry Pi **Pico 2 W** (RP2350), candidato ao gateway.
 - **Hub USB alimentado externamente** no lado de entrada, para gamepads USB e receptores 2,4 GHz.
-- **Hub USB** no lado de saída, agregando os controles emulados em um cabo para o PS5.
-- Interface USB Host adicional por PIO-USB, a validar na placa/firmware.
+- **Dongle de autenticação PS5**, ligado à porta USB-A do gateway. Candidatos: Haute42 Booter5, Mayflash MagicBoots v1.1, GuileKeys P5Boots, Brook Wingman FGC (v1).
+- Interface USB Host adicional por PIO-USB — necessária para a porta do dongle e para o hub de entrada.
+- PS5 **bloqueado**: alvo final; recebe o gateway sem qualquer alteração.
 - PS5 **desbloqueado**: bancada de engenharia reversa, com a checagem de autenticação neutralizada.
-- PS5 **bloqueado**: alvo final; recebe o mesmo gateway sem qualquer alteração.
 - Eventual transceptor 2,4 GHz externo, **modelo ainda não escolhido**.
 - Ferramentas úteis: multímetro e analisador lógico.
 
@@ -39,43 +39,56 @@ Controles USB / dongles 2,4 GHz / Bluetooth
                    |
                    v
               MultiController
-              (Pico 2 W)
-                   |
-     emulação de controle PS5 (USB HID)
-                   |
-          hub USB (saída)
-                   |
-            cabo único USB
-                   |
-           PS5 desbloqueado
+                (Pico 2 W)
+         emula controle XInput/HID
+            |                |
+            |                +------> porta USB-A (host)
+            |                              |
+            |                              v
+            |                  dongle de autenticação
+            |                  (fornece a credencial PS5)
+            v
+      cabo USB único
+            |
+            v
+      PS5 bloqueado (alvo)
 ```
 
-**Importante:** o PS5 autentica controles de terceiros. No console desbloqueado essa checagem pode ser desativada, o que permite desenvolver a emulação; no **bloqueado** ela está ativa e passa a ser o obstáculo real do projeto. Por isso o PS5 desbloqueado é ferramenta de bancada, e não o alvo.
+## Saída para o PS5: dongle de autenticação
+O PS5 autentica controles de terceiros e desconecta o que não passa no handshake (janela de cerca de 8 minutos). Em vez de reproduzir a criptografia, o gateway **empresta** a autenticação de um dongle dedicado — o mesmo arranjo já usado por fightsticks com GP2040-CE, que exibem `[PS5:AS]` quando o dongle entra em ação.
+
+Consequências assumidas:
+- O gateway passa a precisar emular apenas um controle comum, e não um DualSense com sua criptografia.
+- O dongle é o único componente que conhece o protocolo de autenticação; trocá-lo não afeta o gateway.
+- **Recursos do DualSense não existem**: sem gatilhos adaptativos, giroscópio ou alto-falante. O jogo aceita o controle; recursos que dependem do hardware oficial simplesmente não aparecem.
+- O **Brook Wingman FGC2 não serve** como dongle (arquitetura interna diferente); só o FGC v1 e os dongles listados acima.
+- Atualizações de sistema do PS5 podem quebrar o dongle — isso vira manutenção permanente do projeto.
 
 ## Software livre candidato
-- [OGX-Mini](https://github.com/wiredopposite/OGX-Mini): base candidata para receber/normalizar gamepads e produzir saída de controle PS4/PS5; verificar suporte efetivo ao Pico 2 W, quais modos de saída funcionam sem chip de autenticação, múltiplos jogadores e coexistência com USB Host.
-- [Pico-PIO-USB](https://github.com/sekigon-gonnoc/Pico-PIO-USB): implementação USB via PIO a avaliar para entrada Host.
+- [GP2040-CE](https://github.com/OpenStickCommunity/GP2040-CE): referência do modo *auth passthrough* de PS5 e da integração com dongles; verificar suporte a RP2350 (o projeto nasceu em RP2040).
+- [OGX-Mini](https://github.com/wiredopposite/OGX-Mini): base candidata para receber/normalizar gamepads de entrada.
+- [Pico-PIO-USB](https://github.com/sekigon-gonnoc/Pico-PIO-USB): implementação USB via PIO, necessária para as duas portas Host (hub de entrada e dongle).
 
 ## Pesquisa e incógnitas do PS5
-- **Engenharia reversa da autenticação**: como o console valida um controle USB, quais mensagens troca e o que um controle oficial responde — observado no PS5 desbloqueado.
-- Se a autenticação pode ser reproduzida por hardware próprio, ou se depende de chave/segredo inacessível no chip Sony.
-- Qual payload/exploit do PS5 desbloqueado remove a exigência e em quais versões de firmware, para comparar o comportamento com e sem a checagem.
-- Definir se a emulação deve ser **DualSense** ou **DualShock 4** (diferenças de descritor, relatório e recursos aceitos pelo console).
-- Verificar se dois controles emulados podem coexistir atrás de um hub USB e como o PS5 os enumera (P1/P2).
-- Medir se a latência gateway + hub é aceitável para jogo.
+- **Protocolo do dongle**: o que o gateway precisa enviar/receber na porta USB-A para que a credencial seja aplicada.
+- Se **um dongle atende um controle ou vários** — define o custo e a viabilidade de dois jogadores.
+- Quantas interfaces USB o Pico 2 W sustenta ao mesmo tempo: host do hub de entrada, host do dongle e device para o PS5.
+- Se o caminho do dongle é estável o bastante para jogo (latência, reconexão, suspensão do console).
+- **Longo prazo**: como Brook e Besavior fazem a mesma coisa — indício de uso de **chips de DualSense clonados**, o que explicaria a viabilidade comercial e não ser alcançável por engenharia reversa pura.
+- Na bancada desbloqueada: capturar o handshake para documentar o protocolo, mesmo que a V1 não o implemente.
 
 ## Experimentos propostos
-1. Confirmar no PS5 desbloqueado que um controle USB sem autenticação é aceito.
-2. Capturar no PS5 desbloqueado a troca de mensagens de um DualSense oficial, para mapear o protocolo de autenticação.
-3. Fazer o Pico 2 W enumerar como DualSense e validar botões/analógicos em um teste de sistema.
-4. Receber um gamepad de terceiros via hub USB alimentado e repassá-lo ao PS5 (P1).
-5. Medir latência e reconexão ao desconectar/reconectar o controle de origem.
-6. Adicionar um segundo controle atrás do hub de saída e verificar a enumeração como P1/P2.
-7. Testar conflitos, ordem de enumeração e comportamento após suspensão do console.
-8. Repetir o teste no **PS5 bloqueado** e medir o que a checagem de autenticação rejeita.
+1. Confirmar no PS5 **bloqueado** que um controle sem autenticação é rejeitado (ou desconectado) — medir a janela real.
+2. Repetir no PS5 **desbloqueado** e comparar, registrando a diferença de comportamento.
+3. Validar um dongle de autenticação com um controle simples já suportado (referência externa), confirmando que entra em jogo nativo de PS5.
+4. Fazer o Pico 2 W emular um controle comum e ser aceito pelo PS5 através do dongle.
+5. Receber um gamepad de terceiros via hub USB alimentado e repassá-lo ao PS5 (P1).
+6. Medir latência e reconexão ao desconectar/reconectar o controle de origem.
+7. Adicionar um segundo controle e verificar enumeração P1/P2 e necessidade de um segundo dongle.
+8. Testar conflitos, ordem de enumeração e comportamento após suspensão do console.
 
 ## Mapeamento mínimo PS5
-| Entrada genérica | Saída DualSense |
+| Entrada genérica | Saída (controle emulado) |
 |---|---|
 | Direcional | D-pad |
 | Analógico esquerdo | Left Stick |
@@ -88,15 +101,15 @@ Controles USB / dongles 2,4 GHz / Bluetooth
 | Menu / pausa | Options / Create |
 
 ## Critérios de sucesso do V1
-- Um gamepad não PlayStation funciona no PS5 **desbloqueado**.
-- Enumeração estável como controle de PS5, sem o console exigir autenticação.
-- Protocolo de autenticação do PS5 documentado a partir da bancada desbloqueada.
+- Um gamepad não PlayStation funciona em um **jogo nativo de PS5** no console **bloqueado**.
+- Autenticação resolvida pelo dongle, sem modificação no console.
 - Pareamento/reconexão reproduzíveis.
 - Latência adequada para jogar, medida em testes.
-- Nenhuma modificação no console ou nos controles de origem.
+- Nenhuma modificação nos controles de origem.
+- Comportamento na bancada desbloqueada documentado (handshake observado).
 
 ## Evolução posterior
-- **Aceitação por PS5 bloqueado**: o gateway passa a se apresentar como controle autêntico, sem depender de desbloqueio.
+- **Autenticação própria**: substituir o dongle por um caminho de auth embutido no gateway (chip/dongle integrado), eliminando a dependência de acessório externo.
 - Dois jogadores simultâneos.
 - Alvo **Atari Pac-Man Edition** com os receptores DB9 dos CX40+ Wireless (fase posterior; ver histórico no git).
 - Entradas de aproximadamente duas dezenas de controles diferentes.
@@ -104,11 +117,11 @@ Controles USB / dongles 2,4 GHz / Bluetooth
 - Perfis por controle e console, seleção automática e integração ao painel retrô PolyConsole.
 
 ## Decisões pendentes
-- Viabilidade de reproduzir a autenticação de controle sem o chip Sony — define se o PS5 bloqueado é alcançável.
-- Payload/exploit e versão de firmware do PS5 desbloqueado usado na bancada.
-- DualSense ou DualShock 4 como identidade emulada.
-- Capacidade real do Pico 2 W com USB Host, emulação USB e (se necessário) Bluetooth simultâneos.
-- Quantidade de controles suportada atrás dos hubs.
+- Qual dongle adotar e se um atende mais de um controle.
+- Protocolo entre gateway e dongle: implementar em firmware próprio ou adotar GP2040-CE como base.
+- Viabilidade de autenticação própria no futuro — define se o dongle é etapa final ou transitória.
+- Capacidade real do Pico 2 W com dois hosts USB (PIO) e device simultâneos.
+- Quantidade de controles suportada atrás do hub de entrada.
 - Estratégia de alimentação e proteção elétrica.
 
 ## Licença
