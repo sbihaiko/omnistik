@@ -10,7 +10,7 @@ A intenção final é funcionar em um **PS5 bloqueado**. O **PS5 desbloqueado** 
 ## Escopo V1
 - Primeiro demonstrar **um gamepad de terceiros controlando o PS5**; depois expandir a dois jogadores.
 - O gateway **não emula a autenticação**: ele emula um controle comum (XInput/HID) e delega a credencial a um **dongle de autenticação** ligado à sua própria porta USB-A.
-- Entrada dos controles físicos por **hub USB alimentado**.
+- Entrada dos controles físicos e dongle de autenticação por um **único hub USB alimentado**, ligado à porta host do gateway.
 - Saída por um único cabo USB até o console.
 - Controles de origem mantidos intactos.
 - Validar preferencialmente já no **PS5 bloqueado**, que é o alvo real.
@@ -22,9 +22,9 @@ A intenção final é funcionar em um **PS5 bloqueado**. O **PS5 desbloqueado** 
 *Placa já em mãos para o protótipo: Raspberry Pi Pico 2 W, RP2350, `FCC: 2ABCB-PICO2W` / `IC: 20953-PICO2W`.*
 
 - Raspberry Pi **Pico 2 W** (RP2350), candidato ao gateway.
-- **Hub USB alimentado externamente** no lado de entrada, para gamepads USB e receptores 2,4 GHz.
-- **Dongle de autenticação PS5**, ligado à porta USB-A do gateway. Candidatos: Haute42 Booter5, Mayflash MagicBoots v1.1, GuileKeys P5Boots, Brook Wingman FGC (v1).
-- Interface USB Host adicional por PIO-USB — necessária para a porta do dongle e para o hub de entrada.
+- **Hub USB alimentado** (sem backfeed) compartilhando o dongle e os controles na mesma porta host.
+- **Dongle de autenticação PS5**, ligado ao hub. Candidatos: Haute42/COSMOX Booter5, Mayflash MagicBoots v1.1, GuileKeys P5Boots, Brook Wingman FGC (v1).
+- Interface USB Host por PIO-USB — a porta do hub. Detalhes de fiação e testes em [docs/hardware.md](docs/hardware.md).
 - PS5 **bloqueado**: alvo final; recebe o gateway sem qualquer alteração.
 - PS5 **desbloqueado**: bancada de engenharia reversa, com a checagem de autenticação neutralizada.
 - Eventual transceptor 2,4 GHz externo, **modelo ainda não escolhido**.
@@ -35,24 +35,28 @@ A intenção final é funcionar em um **PS5 bloqueado**. O **PS5 desbloqueado** 
 Controles USB / dongles 2,4 GHz / Bluetooth
                    |
                    v
-        hub USB alimentado (entrada)
+        hub USB alimentado (sem backfeed)
+          |                  |
+          |                  +--> dongle de autenticação
+          |                       (fornece a credencial PS5)
+          v
+      porta host PIO-USB
                    |
                    v
-              MultiController
-                (Pico 2 W)
+            MultiController
+              (Pico 2 W)
          emula controle XInput/HID
-            |                |
-            |                +------> porta USB-A (host)
-            |                              |
-            |                              v
-            |                  dongle de autenticação
-            |                  (fornece a credencial PS5)
-            v
+                   |
+         USB nativo (device)
+                   |
+                   v
       cabo USB único
-            |
-            v
+                   |
+                   v
       PS5 bloqueado (alvo)
 ```
+
+**Um hub só.** O dongle e os controles compartilham a mesma porta host; o PS5 enxerga apenas um controle. Fiação, lista de material e ordem de testes: [docs/hardware.md](docs/hardware.md).
 
 ## Saída para o PS5: dongle de autenticação
 O PS5 autentica controles de terceiros e desconecta o que não passa no handshake (janela de cerca de 8 minutos). Em vez de reproduzir a criptografia, o gateway **empresta** a autenticação de um dongle dedicado — o mesmo arranjo já usado por fightsticks com GP2040-CE, que exibem `[PS5:AS]` quando o dongle entra em ação.
