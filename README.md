@@ -23,7 +23,7 @@ A intenção final é funcionar em um **PS5 bloqueado**. O **PS5 desbloqueado** 
 
 - Raspberry Pi **Pico 2 W** (RP2350), candidato ao gateway.
 - **Hub USB alimentado** (sem backfeed) compartilhando o dongle e os controles na mesma porta host.
-- **Dongle de autenticação PS5**, ligado ao hub. Candidatos: Haute42/COSMOX Booter5, Mayflash MagicBoots v1.1, GuileKeys P5Boots, Brook Wingman FGC (v1).
+- **Dongle de autenticação PS5**, ligado ao hub. V1: Besavior P5General (todos os jogos). Alternativa barata: Haute42/COSMOX Booter5 (só luta/corrida).
 - Interface USB Host por PIO-USB — a porta do hub. Detalhes de fiação e testes em [docs/hardware.md](docs/hardware.md).
 - PS5 **bloqueado**: alvo final; recebe o gateway sem qualquer alteração.
 - PS5 **desbloqueado**: bancada de engenharia reversa, com a checagem de autenticação neutralizada.
@@ -59,37 +59,52 @@ Controles USB / dongles 2,4 GHz / Bluetooth
 **Um hub só.** O dongle e os controles compartilham a mesma porta host; o PS5 enxerga apenas um controle. Fiação, lista de material e ordem de testes: [docs/hardware.md](docs/hardware.md).
 
 ## Saída para o PS5: dongle de autenticação
-O PS5 autentica controles de terceiros e desconecta o que não passa no handshake (janela de cerca de 8 minutos). Em vez de reproduzir a criptografia, o gateway **empresta** a autenticação de um dongle dedicado — o mesmo arranjo já usado por fightsticks com GP2040-CE, que exibem `[PS5:AS]` quando o dongle entra em ação.
+O PS5 autentica controles de terceiros e **reautentica a cada ~30 segundos**; sem autenticação válida o controle deixa de responder por volta dos 8 minutos. Em vez de reproduzir a criptografia, o gateway **empresta** a autenticação de um dongle dedicado — o mesmo arranjo usado por fightsticks com GP2040-CE, que exibem `[PS5:AS]` quando o dongle entra em ação.
 
-Consequências assumidas:
-- O gateway passa a precisar emular apenas um controle comum, e não um DualSense com sua criptografia.
-- O dongle é o único componente que conhece o protocolo de autenticação; trocá-lo não afeta o gateway.
-- **Recursos do DualSense não existem**: sem gatilhos adaptativos, giroscópio ou alto-falante. O jogo aceita o controle; recursos que dependem do hardware oficial simplesmente não aparecem.
-- O **Brook Wingman FGC2 não serve** como dongle (arquitetura interna diferente); só o FGC v1 e os dongles listados acima.
-- Atualizações de sistema do PS5 podem quebrar o dongle — isso vira manutenção permanente do projeto.
+### Duas classes de dongle
+
+| Classe | Exemplos | Cobertura de jogos | Mecanismo |
+|---|---|---|---|
+| **PS4 "categorized"** | Haute42/COSMOX Booter5, Mayflash MagicBoots v1.1, GuileKeys P5Boots, Brook Wingman FGC (v1) | Apenas jogos que aceitam controle PS4 licenciado — mais comum em luta e corrida | Autentica como controle PS4 licenciado (chip `NXP7105`) |
+| **Emula DualSense** | **Besavior P5General**, Besavior P5Mate Pro | **Todos os jogos de PS5** | Autentica como DualSense, ~1000 Hz |
+
+Conversores da segunda classe — Brook Wingman P5 e FGC2 — resolvem o mesmo problema, mas trocando a arquitetura: o gateway passa a só emular XInput e o conversor faz o resto.
+
+**Candidato do V1: Besavior P5General** (dongle, não conversor). O Booter5 fica como opção barata caso o alvo seja apenas jogo de luta ou corrida.
+
+### Consequências assumidas
+- O gateway precisa emular apenas um controle comum, e não um DualSense com sua criptografia.
+- **Um dongle atende um controle.** Cada jogador adicional exige mais uma unidade — a solução para vários é física, com vários dongles no hub.
+- O suporte a hub múltiplo é **experimental** no que existe hoje de referência, e há relatos de instabilidade.
+- **Recursos do DualSense variam por dongle**: a classe PS4 não tem gatilhos adaptativos, giroscópio nem alto-falante; a classe DualSense costuma repassá-los.
+- O **Brook Wingman FGC2 não serve** como dongle (arquitetura interna diferente); só o FGC v1 e os listados acima.
+- Atualizações de sistema do PS5 podem quebrar o dongle — manutenção permanente do projeto.
+- O caminho da classe DualSense depende de **chip clonado**: a credencial existe, mas não é reproduzível por engenharia reversa própria.
 
 ## Software livre candidato
 - [GP2040-CE](https://github.com/OpenStickCommunity/GP2040-CE): referência do modo *auth passthrough* de PS5 e da integração com dongles; verificar suporte a RP2350 (o projeto nasceu em RP2040).
 - [OGX-Mini](https://github.com/wiredopposite/OGX-Mini): base candidata para receber/normalizar gamepads de entrada.
-- [Pico-PIO-USB](https://github.com/sekigon-gonnoc/Pico-PIO-USB): implementação USB via PIO, necessária para as duas portas Host (hub de entrada e dongle).
+- [Pico-PIO-USB](https://github.com/sekigon-gonnoc/Pico-PIO-USB): implementação USB via PIO, necessária para a porta host do hub.
 
 ## Pesquisa e incógnitas do PS5
 - **Protocolo do dongle**: o que o gateway precisa enviar/receber na porta USB-A para que a credencial seja aplicada.
-- Se **um dongle atende um controle ou vários** — define o custo e a viabilidade de dois jogadores.
-- Quantas interfaces USB o Pico 2 W sustenta ao mesmo tempo: host do hub de entrada, host do dongle e device para o PS5.
+- Se o **Besavior P5General aceita um controle custom** como entrada, ou se só funciona com conversores e sticks conhecidos.
+- Quantas interfaces USB o Pico 2 W sustenta ao mesmo tempo: host do hub e device para o PS5.
 - Se o caminho do dongle é estável o bastante para jogo (latência, reconexão, suspensão do console).
+- Quantos dongles cabem atrás de um hub sem comprometer o prazo de reautenticação de ~30 s.
 - **Longo prazo**: como Brook e Besavior fazem a mesma coisa — indício de uso de **chips de DualSense clonados**, o que explicaria a viabilidade comercial e não ser alcançável por engenharia reversa pura.
 - Na bancada desbloqueada: capturar o handshake para documentar o protocolo, mesmo que a V1 não o implemente.
 
 ## Experimentos propostos
 1. Confirmar no PS5 **bloqueado** que um controle sem autenticação é rejeitado (ou desconectado) — medir a janela real.
 2. Repetir no PS5 **desbloqueado** e comparar, registrando a diferença de comportamento.
-3. Validar um dongle de autenticação com um controle simples já suportado (referência externa), confirmando que entra em jogo nativo de PS5.
+3. Validar o dongle com um controle simples já suportado (referência externa), confirmando que entra em jogo de PS5 que **não** aceita controle PS4 legado.
 4. Fazer o Pico 2 W emular um controle comum e ser aceito pelo PS5 através do dongle.
 5. Receber um gamepad de terceiros via hub USB alimentado e repassá-lo ao PS5 (P1).
-6. Medir latência e reconexão ao desconectar/reconectar o controle de origem.
+6. Deixar um controle parado enquanto o outro joga por 20 minutos e medir a reautenticação de ~30 s.
 7. Adicionar um segundo controle e verificar enumeração P1/P2 e necessidade de um segundo dongle.
 8. Testar conflitos, ordem de enumeração e comportamento após suspensão do console.
+9. Medir latência e reconexão ao desconectar/reconectar o controle de origem.
 
 ## Mapeamento mínimo PS5
 | Entrada genérica | Saída (controle emulado) |
