@@ -41,6 +41,34 @@ Não existe fonte pública que diga qual perfil de gamepad o PS5 11.20 desbloque
 
 Declarado como **bloqueio experimental**: qualquer resultado negativo das ondas 2 e 3 vale apenas para a combinação exata de firmware + cadeia de payload + descritores testada, e não como prova de que o console recusa o dispositivo. O perfil só será conhecido ligando.
 
+## O que já foi medido: quem decide o que vira controle
+
+O klog do console mostra um serviço dedicado a isso, o `SceHidConfigService`:
+
+```
+[SceHidConfigService] DownloadFile : [RevokeList]
+[SceHidConfigService] SERVER_URL={https://envelope2.np.dl.playstation.net/envelope2/hid_config/np/v00/hid_config.env}
+[SceHidConfigService] PERIODIC_CHECK_INTERVAL_SEC={420}
+[SceHidConfigService] ... Get: HCS_ISOK::0x8041013d
+```
+
+Ou seja: o mapeamento dispositivo → controle é mediado por **configuração baixada da Sony** (`hid_config.env`) com uma **RevokeList**, reconsultada a cada 420 s, mais o que vier embutido no firmware. Neste console o download falha (`0x8041013d`), então ele opera com a configuração local.
+
+Isso muda a pergunta: não é "o descritor HID está certo", é "este dispositivo está na configuração que o console considera aceitável". Um `VID/PID` inventado (`0xCAFE/0x4001`) nunca vai estar — e a autenticação vem por cima.
+
+## O que já foi medido: o console enumera o dispositivo
+
+Ligado na porta USB do console (11.20, kstuff carregado), o Pico foi aceito no nível USB nas duas variantes testadas:
+
+```
+ugen1.3: <Omnistik, Omnistik Probe, OMNI-PROBE>(VID=0xcafe PID=0x4001 depth=1 port=2 speed=FS) at usbus1
+usb_hid0: <Omnistik Omnistik Probe, class 0/0, rev 2.00/1.00, addr 5> on usbus1
+```
+
+Repetido com endereço novo (addr 6) e com N=4, sempre com o mesmo desfecho: driver HID anexado, desconexão limpa, **nenhuma linha de pad no klog, nenhum jogador atribuído, nenhuma reação na tela**.
+
+Isso corrige a hipótese original da spec: a variável não é "o console aceita o dispositivo" — ele aceita. O que falta é a camada entre o driver HID e o jogador, que é onde a autenticação e a atribuição acontecem.
+
 ## O que já foi medido: payload não é cliente de pad
 
 No console da bancada, a partir de um payload:
