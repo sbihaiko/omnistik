@@ -68,6 +68,33 @@ Controles USB / dongles 2,4 GHz / Bluetooth
 
 **Um hub só.** O dongle e os controles compartilham a mesma porta host; o PS5 enxerga apenas um controle. Fiação, lista de material e ordem de testes: [docs/hardware.md](docs/hardware.md).
 
+## Estrutura do código
+
+```text
+src/
+  core/            estado normalizado do controle — C puro, sem Pico SDK
+  adapters/
+    input.h        porta: de onde os controles chegam
+    output.h       porta: onde os controles são apresentados
+    synthetic/     fonte simulada (bancada, onda 1)
+    ps5-pico/      saída USB composta que o PS5 enxerga
+    bluepad32/     entrada Bluetooth (onda 5)
+    pio-usb/       entrada USB host (trilha do hub)
+  app/             composition root: init de placa, log e escolha da variante
+test/              testes do que está em src/, rodando no host, sem placa
+spikes/            experimentos de bancada, descartáveis, um alvo de build cada
+```
+
+Regras:
+
+- **`core/` não conhece hardware.** Nada de Pico SDK, USB ou rádio — é o que permite testar no host.
+- **`src/` é o código final; `test/` é onde ele é testado.** Enquanto a sonda for experimento, ela vive em `spikes/`; só sobe para `src/` o que sobreviver à medição.
+- **`adapters/` tem as portas e as implementações.** Os arquivos `.h` na raiz de `adapters/` são os contratos; cada pasta filha é uma implementação concreta, com alvo de CMake próprio, que depende da porta e do Pico SDK.
+- **`app/` é o único lugar que monta as peças** e sabe qual variante está sendo compilada (entrada simulada vs. Bluetooth, N controles).
+- **`spikes/` é descartável.** Cada experimento é um firmware inteiro e independente; não entra no build do produto.
+
+A pasta `platform/` foi considerada e descartada: quem toca o Pico SDK são as próprias implementações de adaptador, e uma camada por cima só criaria um segundo lugar para inicializar periférico.
+
 ## Saída para o PS5: dongle de autenticação (fase 2)
 Esta seção vale apenas para o **console bloqueado**. No V1 (console desbloqueado) a autenticação é neutralizada por payload e o gateway fala direto com o PS5.
 
@@ -106,6 +133,13 @@ Conversores da segunda classe — Brook Wingman P5 e FGC2 — resolvem o mesmo p
 - Quantos dongles cabem atrás de um hub sem comprometer o prazo de reautenticação de ~30 s.
 - **Longo prazo**: como Brook e Besavior fazem a mesma coisa — indício de uso de **chips de DualSense clonados**, o que explicaria a viabilidade comercial e não ser alcançável por engenharia reversa pura.
 - Na bancada desbloqueada: capturar o handshake para documentar o protocolo, mesmo que a V1 não o implemente.
+
+## Achados de bancada
+
+Medições já feitas. O detalhe e a evidência de cada uma ficam em [docs/hardware.md](docs/hardware.md).
+
+- **O Pico 2 W enumera como gamepad.** Dispositivo USB composto com uma interface HID; o macOS o registra como Game Pad (UsagePage 1 / Usage 5), com o descritor de relatório previsto.
+- **`sleep_ms()` no laço principal impede a enumeração no RP2350.** Com pico-sdk 2.3.1 e GCC 14.3, o dispositivo simplesmente não aparece no host; trocando por `busy_wait_us_32()` ele enumera. O caminho de sono do RP2350 (alarme + `wfe`) tem histórico de problema, e a correção citada no SDK não se aplica a esta combinação. **Regra do projeto: nada de `sleep_ms`/`sleep_us` no laço do firmware** até uma versão confirmada.
 
 ## Experimentos — fase 1 (console desbloqueado, sem dongle)
 1. **Pico como device**: enumerar como controle HID no PC.

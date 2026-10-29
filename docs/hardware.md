@@ -100,6 +100,17 @@ Se o hub atrapalhar o dongle ou o PIO-USB não lidar bem com splits:
 
 A montagem com duas portas não perde nada do que foi feito nos testes 1–3.
 
+## Achados de bancada
+
+Resultados medidos, não hipóteses. Cada linha diz o que foi testado e como.
+
+| Achado | Condição | Evidência |
+|---|---|---|
+| A sonda enumera como gamepad | Pico 2 W, pico-sdk 2.3.1, GCC 14.3, USB composto com 1 interface HID | macOS registra `IOHIDDevice` com VendorID `0xCAFE`, ProductID `0x4001`, UsagePage 1 / Usage 5 (Game Pad), descritor de relatório idêntico ao definido |
+| `sleep_ms()` no laço principal derruba a enumeração | mesmas condições; única diferença entre as builds | Dispositivo não aparece no host. Trocado por `busy_wait_us_32()` e passa a enumerar. Isolado por A/B: `stdio_init_all()`, `tud_hid_n_report()` e `tud_hid_n_ready()` foram descartados um a um antes |
+
+Sobre o segundo achado: o caminho de sono do RP2350 usa alarme + `wfe`, que tem histórico de problema ([pico-sdk#2216](https://github.com/raspberrypi/pico-sdk/issues/2216), [micropython#18990](https://github.com/micropython/micropython/issues/18990)). A correção citada no changelog do SDK para `best_effort_wfe_or_timeout()` não se manifesta nesta combinação. Enquanto não houver versão confirmada, **nada de `sleep_ms`/`sleep_us` no laço do firmware**.
+
 ## Pendências
 
 - Confirmar suporte do `Pico-PIO-USB` ao RP2350.
