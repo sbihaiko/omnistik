@@ -5,3 +5,4 @@ build/
 spikes/*/build/
 spikes/*/build-*/
 tools/.venv/
+spikes/vdi-probe/*.elf
