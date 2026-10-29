@@ -1,2 +1,0 @@
-/Users/bihaiko/VSCodeProjects/omnistik/spikes/hid-probe/build-n2/_deps/picotool-build/enc_bootloader/CMakeFiles/edit_cache.dir
-/Users/bihaiko/VSCodeProjects/omnistik/spikes/hid-probe/build-n2/_deps/picotool-build/enc_bootloader/CMakeFiles/rebuild_cache.dir

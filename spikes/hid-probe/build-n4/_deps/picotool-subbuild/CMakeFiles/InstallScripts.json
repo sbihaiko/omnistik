@@ -1,7 +1,0 @@
-{
-	"InstallScripts" : 
-	[
-		"/Users/bihaiko/VSCodeProjects/omnistik/spikes/hid-probe/build-n4/_deps/picotool-subbuild/cmake_install.cmake"
-	],
-	"Parallel" : false
-}

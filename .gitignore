@@ -3,4 +3,5 @@ runs/.hub/
 
 build/
 spikes/*/build/
+spikes/*/build-*/
 tools/.venv/
